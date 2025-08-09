@@ -81,15 +81,6 @@ if not df.empty:
     # 净额
     net = {n: paid[n] - owed[n] for n in names}
 
-    # Summary 表
-    st.subheader("💰 Summary")
-    summary_df = pd.DataFrame({
-        "Paid": paid,
-        "Owed": owed,
-        "Net":  net
-    })
-    st.table(summary_df)
-
     # Settlement 矩阵
     st.subheader("🔄 Settlement Matrix")
     settle_df = pd.DataFrame(0, index=names, columns=names)
@@ -102,6 +93,15 @@ if not df.empty:
                 temp_net[payer] += x
                 temp_net[payee]  -= x
     st.table(settle_df)
+
+    # Summary 表
+    st.subheader("💰 Summary")
+    summary_df = pd.DataFrame({
+        "Paid": paid,
+        "Owed": owed,
+        "Net":  net
+    })
+    st.table(summary_df)
 
 # —— 5. 编辑已有记录 —— 
 st.subheader("✏️ Edit an Expense")
