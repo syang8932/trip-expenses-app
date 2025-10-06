@@ -82,20 +82,25 @@ with st.form("add_expense", clear_on_submit=True):
             st.success(f"✅ Expense added in {currency_in_form}! Page will refresh to show it.")
 
 # ============ 6) Read all records & show one unified table ============
-records = sheet.get_all_records()
-df_all = pd.DataFrame(records)
+values = sheet.get_all_values()
+header = values[0] if values else ["Date", "Description", "Amount", "Payer", "Participants", "Currency"]
+rows = values[1:] if len(values) > 1 else []
+
+df_all = pd.DataFrame(rows, columns=header)
 
 # Backward-compat
 if df_all.empty:
     df_all = pd.DataFrame(columns=["Date","Description","Amount","Payer","Participants","Currency"])
-if "Currency" not in df_all.columns:
-    df_all["Currency"] = currency_options[0]
+
+# Attach the TRUE Google Sheet row number: first data row is row 2
+df_all["sheet_row"] = [i + 2 for i in range(len(df_all))]
 
 # Normalize types
 df_all["Amount"] = pd.to_numeric(df_all.get("Amount", 0.0), errors="coerce").fillna(0.0)
 
 st.subheader("📋 All Expenses (All Currencies)")
-st.dataframe(df_all)
+# Show the table indexed by the real sheet row so it matches the selector below
+st.dataframe(df_all.set_index("sheet_row"), use_container_width=True)
 
 # ============ 7) Settlement helpers ============
 def _split_parts(cell):
@@ -185,25 +190,29 @@ if names:
 
         # Edit section (filtered by selected currency)
         st.subheader("✏️ Edit an Expense")
-        df_all_reset = df_all.reset_index(drop=True)
-        df_all_reset["sheet_row"] = df_all_reset.index + 2   # header = row 1
-        editable = df_all_reset[df_all_reset["Currency"] == sel].copy()
+        editable = df_all[df_all["Currency"] == sel].copy()
+
         if editable.empty:
             st.info(f"No {sel} records to edit.")
         else:
-            row_to_edit = st.selectbox("Select row to edit (sheet row number)",
-                                       editable["sheet_row"].tolist())
-            record = editable[editable["sheet_row"] == row_to_edit].iloc[0]
+            # Let people pick the actual sheet row; matches the index in the table above
+            row_to_edit = st.selectbox(
+                "Select sheet row to edit",
+                options=editable["sheet_row"].astype(int).tolist()
+            )
+            record = editable.loc[editable["sheet_row"] == row_to_edit].iloc[0]
+
             with st.form("edit_expense", clear_on_submit=True):
-                date_e = st.date_input("Date", value=pd.to_datetime(record["Date"]))
+                date_e = st.date_input("Date", value=pd.to_datetime(record["Date"]).date())
                 desc_e = st.text_input("Description", value=record["Description"])
                 amt_e  = st.number_input("Amount", value=float(record["Amount"]), format="%.2f")
                 payer_e = st.selectbox("Payer", options=names,
-                                       index=names.index(record["Payer"]) if record["Payer"] in names else 0)
+                                    index=names.index(record["Payer"]) if record["Payer"] in names else 0)
                 parts_default = _split_parts(record["Participants"])
                 participants_e = st.multiselect("Participants", options=names, default=parts_default)
                 currency_e = st.selectbox("Currency", options=currency_options,
-                                          index=currency_options.index(record.get("Currency", sel)))
+                                        index=currency_options.index(record.get("Currency", sel)))
+
                 if st.form_submit_button("Update Expense"):
                     updated = [
                         date_e.strftime("%Y-%m-%d"),
