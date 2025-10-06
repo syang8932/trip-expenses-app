@@ -186,7 +186,7 @@ if names:
         # Edit section (filtered by selected currency)
         st.subheader("✏️ Edit an Expense")
         df_all_reset = df_all.reset_index(drop=True)
-        df_all_reset["sheet_row"] = df_all_reset.index   # header = row 1
+        df_all_reset["sheet_row"] = df_all_reset.index + 2   # header = row 1
         editable = df_all_reset[df_all_reset["Currency"] == sel].copy()
         if editable.empty:
             st.info(f"No {sel} records to edit.")
